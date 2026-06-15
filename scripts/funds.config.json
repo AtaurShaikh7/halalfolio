@@ -1,0 +1,45 @@
+{
+  "_comment": "Per-fund config for the holdings pipeline. `amc` selects the downloader recipe in download_holdings.mjs. `page` is the AMC disclosure page Playwright opens. `match` is a case-insensitive substring used to pick the right fund's download link on that page. `isin` is the direct-plan-growth ISIN used for broker deep links.",
+  "funds": [
+    {
+      "schemeCode": 122639,
+      "name": "Parag Parikh Flexi Cap Fund",
+      "amc": "ppfas",
+      "isin": "INF879O01019",
+      "page": "https://amc.ppfas.com/schemes/parag-parikh-flexi-cap-fund/portfolio-disclosure/",
+      "match": "monthly portfolio"
+    },
+    {
+      "schemeCode": 118955,
+      "name": "HDFC Flexi Cap Fund",
+      "amc": "hdfc",
+      "isin": "INF179K01CC4",
+      "page": "https://www.hdfcfund.com/investor-services/portfolio-disclosure",
+      "match": "flexi cap"
+    },
+    {
+      "schemeCode": 120323,
+      "name": "ICICI Pru Value Fund",
+      "amc": "icici",
+      "isin": "INF109K01Z48",
+      "page": "https://www.icicipruamc.com/downloads/monthly-portfolio",
+      "match": "value"
+    },
+    {
+      "schemeCode": 120403,
+      "name": "Invesco India Midcap Fund",
+      "amc": "invesco",
+      "isin": "INF205K01361",
+      "page": "https://www.invescomutualfund.com/daily-scheme-performance?tab=DailyDisclosures",
+      "match": "midcap"
+    },
+    {
+      "schemeCode": 153196,
+      "name": "Mirae Asset Small Cap Fund",
+      "amc": "mirae",
+      "isin": "INF769K01PT9",
+      "page": "https://www.miraeassetmf.co.in/downloads/portfolio",
+      "match": "small cap"
+    }
+  ]
+}

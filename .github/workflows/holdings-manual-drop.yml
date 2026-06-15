@@ -1,0 +1,45 @@
+name: Ingest manually-dropped holdings
+
+# When you upload an XLSX into halalfolio/downloads/ (drag-drop on github.com
+# or a normal commit), this ingests it without touching Playwright. This is the
+# human-fallback half of the pipeline for funds Cloudflare blocks in CI.
+on:
+  push:
+    paths:
+      - 'halalfolio/downloads/*.xlsx'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: halalfolio
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: halalfolio/package-lock.json
+
+      - run: npm ci
+
+      - name: Ingest dropped files (no Playwright download)
+        run: node scripts/ingest_all.mjs --no-download
+
+      - name: Commit updated holdings
+        run: |
+          git config user.name  "holdings-bot"
+          git config user.email "actions@github.com"
+          git add src/data/holdings/*.json
+          if git diff --cached --quiet; then
+            echo "No holdings changes to commit."
+          else
+            git commit -m "chore: ingest manually-dropped holdings ($(date -u +%Y-%m-%d))"
+            git push
+          fi

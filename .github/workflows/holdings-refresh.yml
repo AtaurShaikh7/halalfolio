@@ -1,0 +1,60 @@
+name: Monthly holdings refresh
+
+# Runs on the 8th of every month (AMCs publish ~7th). Also triggerable by hand.
+on:
+  schedule:
+    - cron: '0 6 8 * *' # 06:00 UTC on the 8th
+  workflow_dispatch:
+
+permissions:
+  contents: write # commit updated holdings JSON
+  issues: write # open an issue listing funds that need manual download
+
+defaults:
+  run:
+    working-directory: halalfolio
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: halalfolio/package-lock.json
+
+      - run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Download + ingest holdings
+        run: node scripts/ingest_all.mjs
+
+      - name: Commit updated holdings
+        run: |
+          git config user.name  "holdings-bot"
+          git config user.email "actions@github.com"
+          git add src/data/holdings/*.json
+          if git diff --cached --quiet; then
+            echo "No holdings changes to commit."
+          else
+            git commit -m "chore: refresh fund holdings ($(date -u +%Y-%m-%d))"
+            git push
+          fi
+
+      - name: Open issue for funds needing manual download
+        if: hashFiles('halalfolio/issue_body.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Holdings: manual download needed ($(date -u +%Y-%m))"
+          # Avoid duplicate issues for the same month.
+          if gh issue list --state open --search "$TITLE in:title" | grep -q .; then
+            echo "Issue already open for this month."
+          else
+            gh issue create --title "$TITLE" --body-file issue_body.md --assignee AtaurShaikh7
+          fi

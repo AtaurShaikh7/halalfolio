@@ -1,0 +1,146 @@
+#!/usr/bin/env node
+/**
+ * Orchestrator for the monthly holdings refresh.
+ *
+ *   1. Run download_holdings.mjs (Playwright) to fetch every fund's XLSX.
+ *   2. For each downloaded file, run fetch_holdings.mjs to write the JSON.
+ *   3. Also ingest any files a human dropped into downloads/ manually
+ *      (named <schemeCode>.xlsx) even if auto-download was skipped.
+ *   4. Collect failures and write two artifacts the CI uses:
+ *        - failures.json   (machine-readable list)
+ *        - issue_body.md   (GitHub Issue body, only if there are failures)
+ *
+ * Exit code is always 0 — partial success is normal and must not fail CI;
+ * the failure list drives the "open an issue + ask the human" path.
+ *
+ * Usage:
+ *   node scripts/ingest_all.mjs                 # download + ingest everything
+ *   node scripts/ingest_all.mjs --no-download   # ingest whatever is already in downloads/ (manual-drop path)
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, '..');
+const DL_DIR = path.join(ROOT, 'downloads');
+
+const NO_DOWNLOAD = process.argv.includes('--no-download');
+const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'funds.config.json'), 'utf8'));
+const byCode = Object.fromEntries(cfg.funds.map((f) => [f.schemeCode, f]));
+
+// asOf = last day of the *previous* month (disclosures are month-end).
+function lastMonthEnd() {
+  const d = new Date();
+  d.setUTCDate(1); // first of this month
+  d.setUTCDate(0); // → last day of previous month
+  return d.toISOString().slice(0, 10);
+}
+const ASOF = lastMonthEnd();
+
+fs.mkdirSync(DL_DIR, { recursive: true });
+
+// --- 1. download -----------------------------------------------------------
+let downloadResult = { ok: [], failed: [] };
+if (!NO_DOWNLOAD) {
+  try {
+    const out = execFileSync('node', [path.join(__dirname, 'download_holdings.mjs')], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const line = out.split('\n').find((l) => l.startsWith('__RESULT__'));
+    if (line) downloadResult = JSON.parse(line.slice('__RESULT__'.length));
+  } catch (e) {
+    console.error('download stage error:', e.message);
+  }
+}
+
+// --- 2 + 3. ingest every xlsx present in downloads/ ------------------------
+const ingested = [];
+const ingestFailed = [];
+const presentFiles = fs
+  .readdirSync(DL_DIR)
+  .filter((f) => /^\d+\.xlsx$/i.test(f));
+
+for (const file of presentFiles) {
+  const code = Number(file.replace(/\.xlsx$/i, ''));
+  const fund = byCode[code];
+  if (!fund) {
+    console.error(`(skip) ${file} — no matching fund in config`);
+    continue;
+  }
+  try {
+    execFileSync(
+      'node',
+      [
+        path.join(__dirname, 'fetch_holdings.mjs'),
+        '--file', path.join(DL_DIR, file),
+        '--code', String(code),
+        '--asof', ASOF,
+        '--source', 'amfi',
+        '--name', fund.name,
+      ],
+      { cwd: ROOT, encoding: 'utf8', stdio: 'inherit' }
+    );
+    ingested.push(code);
+  } catch (e) {
+    console.error(`ingest failed for ${code}: ${e.message}`);
+    ingestFailed.push({ code, name: fund.name, page: fund.page, reason: 'ingest-parse-failed' });
+  }
+}
+
+// --- 4. reconcile failures -------------------------------------------------
+// A fund "failed" if it was never ingested this run. Download failures that
+// later got ingested (e.g. a stale manual file) are not failures.
+const ingestedSet = new Set(ingested);
+const failures = [];
+for (const fund of cfg.funds) {
+  if (ingestedSet.has(fund.schemeCode)) continue;
+  const dl = downloadResult.failed.find((f) => f.code === fund.schemeCode);
+  failures.push({
+    code: fund.schemeCode,
+    name: fund.name,
+    page: fund.page,
+    reason: dl ? dl.reason : 'no file in downloads/',
+  });
+}
+
+fs.writeFileSync(
+  path.join(ROOT, 'failures.json'),
+  JSON.stringify({ asOf: ASOF, ingested, failures }, null, 2) + '\n'
+);
+
+if (failures.length) {
+  const lines = [
+    `## ⚠ Holdings auto-refresh — ${failures.length} fund(s) need a manual download`,
+    '',
+    `**As of:** ${ASOF}`,
+    `**Auto-ingested OK:** ${ingested.length ? ingested.join(', ') : 'none'}`,
+    '',
+    'The bot could not auto-download the funds below (usually Cloudflare/anti-bot from CI IPs).',
+    'Please download each XLSX in your browser and drop it into the repo at',
+    '`halalfolio/downloads/<schemeCode>.xlsx`, then commit. A push to that path',
+    're-runs ingestion automatically.',
+    '',
+    '| Scheme | Fund | Download page | Save as | Reason |',
+    '|---|---|---|---|---|',
+    ...failures.map(
+      (f) => `| ${f.code} | ${f.name} | [open](${f.page}) | \`downloads/${f.code}.xlsx\` | ${f.reason} |`
+    ),
+    '',
+    '_Auto-generated by `scripts/ingest_all.mjs`._',
+  ];
+  fs.writeFileSync(path.join(ROOT, 'issue_body.md'), lines.join('\n') + '\n');
+  console.error(`\n${failures.length} fund(s) need manual download — see issue_body.md`);
+} else {
+  // Remove any stale issue body so CI knows there's nothing to report.
+  try { fs.unlinkSync(path.join(ROOT, 'issue_body.md')); } catch {}
+  console.error('\nAll funds ingested successfully ✓');
+}
+
+console.log(`Done. ingested=${ingested.length} failed=${failures.length}`);

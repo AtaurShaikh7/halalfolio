@@ -1,0 +1,196 @@
+{
+  "schemeCode": 122639,
+  "fundName": "Parag Parikh Flexi Cap Fund",
+  "asOf": "2026-05-31",
+  "source": "amfi",
+  "totalEquityWeight": 68.79,
+  "holdingsCount": 31,
+  "holdings": [
+    {
+      "name": "HDFC Bank Limited",
+      "isin": "INE040A01034",
+      "sector": "Banks",
+      "weight": 7.88
+    },
+    {
+      "name": "Power Grid Corporation of India Limited",
+      "isin": "INE752E01010",
+      "sector": "Power",
+      "weight": 6.41
+    },
+    {
+      "name": "ITC Limited",
+      "isin": "INE154A01025",
+      "sector": "Diversified FMCG",
+      "weight": 5.84
+    },
+    {
+      "name": "Coal India Limited",
+      "isin": "INE522F01014",
+      "sector": "Consumable Fuels",
+      "weight": 5.66
+    },
+    {
+      "name": "ICICI Bank Limited",
+      "isin": "INE090A01021",
+      "sector": "Banks",
+      "weight": 5.11
+    },
+    {
+      "name": "Bajaj Holdings & Investment Limited",
+      "isin": "INE118A01012",
+      "sector": "Finance",
+      "weight": 4.48
+    },
+    {
+      "name": "Kotak Mahindra Bank Limited",
+      "isin": "INE237A01036",
+      "sector": "Banks",
+      "weight": 4.12
+    },
+    {
+      "name": "HCL Technologies Limited",
+      "isin": "INE860A01027",
+      "sector": "IT - Software",
+      "weight": 3.6
+    },
+    {
+      "name": "Mahindra & Mahindra Limited",
+      "isin": "INE101A01026",
+      "sector": "Automobiles",
+      "weight": 3.45
+    },
+    {
+      "name": "Infosys Limited",
+      "isin": "INE009A01021",
+      "sector": "IT - Software",
+      "weight": 3.06
+    },
+    {
+      "name": "Axis Bank Limited",
+      "isin": "INE238A01034",
+      "sector": "Banks",
+      "weight": 3.02
+    },
+    {
+      "name": "Maruti Suzuki India Limited",
+      "isin": "INE585B01010",
+      "sector": "Automobiles",
+      "weight": 2.82
+    },
+    {
+      "name": "Bharti Airtel Limited",
+      "isin": "INE397D01024",
+      "sector": "Telecom - Services",
+      "weight": 2.74
+    },
+    {
+      "name": "Tata Consultancy Services Limited",
+      "isin": "INE467B01029",
+      "sector": "IT - Software",
+      "weight": 2.54
+    },
+    {
+      "name": "Zydus Lifesciences Limited",
+      "isin": "INE010B01027",
+      "sector": "Pharmaceuticals & Biotechnology",
+      "weight": 1.47
+    },
+    {
+      "name": "Cipla Limited",
+      "isin": "INE059A01026",
+      "sector": "Pharmaceuticals & Biotechnology",
+      "weight": 1.39
+    },
+    {
+      "name": "Dr. Reddy's Laboratories Limited",
+      "isin": "INE089A01031",
+      "sector": "Pharmaceuticals & Biotechnology",
+      "weight": 1.32
+    },
+    {
+      "name": "Indraprastha Gas Limited",
+      "isin": "INE203G01027",
+      "sector": "Gas",
+      "weight": 1
+    },
+    {
+      "name": "Zydus Wellness Limited",
+      "isin": "INE768C01028",
+      "sector": "Food Products",
+      "weight": 0.79
+    },
+    {
+      "name": "Indian Energy Exchange Limited",
+      "isin": "INE022Q01020",
+      "sector": "Capital Markets",
+      "weight": 0.75
+    },
+    {
+      "name": "EID Parry India Limited",
+      "isin": "INE126A01031",
+      "sector": "Food Products",
+      "weight": 0.44
+    },
+    {
+      "name": "The Great Eastern Shipping Company Limited",
+      "isin": "INE017A01032",
+      "sector": "Transport Services",
+      "weight": 0.22
+    },
+    {
+      "name": "Central Depository Services (India) Limited",
+      "isin": "INE736A01011",
+      "sector": "Capital Markets",
+      "weight": 0.2
+    },
+    {
+      "name": "CMS Info System Limited",
+      "isin": "INE925R01014",
+      "sector": "Commercial Services & Supplies",
+      "weight": 0.16
+    },
+    {
+      "name": "ICRA Limited",
+      "isin": "INE725G01011",
+      "sector": "Capital Markets",
+      "weight": 0.11
+    },
+    {
+      "name": "Maharashtra Scooters Limited",
+      "isin": "INE288A01013",
+      "sector": "Finance",
+      "weight": 0.08
+    },
+    {
+      "name": "Mahanagar Gas Limited",
+      "isin": "INE002S01010",
+      "sector": "Gas",
+      "weight": 0.07
+    },
+    {
+      "name": "Indus Towers Limited",
+      "isin": "INE121J01017",
+      "sector": "Telecom - Services",
+      "weight": 0.03
+    },
+    {
+      "name": "CIE Automotive India Limited",
+      "isin": "INE536H01010",
+      "sector": "Auto Components",
+      "weight": 0.01
+    },
+    {
+      "name": "Swaraj Engines Limited",
+      "isin": "INE277A01016",
+      "sector": "Industrial Products",
+      "weight": 0.01
+    },
+    {
+      "name": "Nesco Limited",
+      "isin": "INE317F01035",
+      "sector": "Commercial Services & Supplies",
+      "weight": 0.01
+    }
+  ]
+}
