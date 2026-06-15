@@ -10,10 +10,6 @@ permissions:
   contents: write # commit updated holdings JSON
   issues: write # open an issue listing funds that need manual download
 
-defaults:
-  run:
-    working-directory: halalfolio
-
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -24,7 +20,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: halalfolio/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
 
@@ -47,7 +43,7 @@ jobs:
           fi
 
       - name: Open issue for funds needing manual download
-        if: hashFiles('halalfolio/issue_body.md') != ''
+        if: hashFiles('issue_body.md') != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
