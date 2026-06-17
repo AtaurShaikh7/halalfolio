@@ -19,9 +19,17 @@ function sipOnSeries(series, key, sip) {
 }
 
 const PRESETS = [1000, 5000, 10000, 25000];
+const INFLATION_PRESETS = [4, 6, 7];
+
+// Discount a future nominal amount to today's purchasing power:
+//   real = nominal / (1 + infl)^years
+function realValue(nominal, inflPct, years) {
+  return nominal / Math.pow(1 + inflPct / 100, years);
+}
 
 export function SipCalculator({ r }) {
   const [amount, setAmount] = useState(5000);
+  const [infl, setInfl] = useState(6);
   const live = r.source === 'live';
 
   const results = useMemo(() => {
@@ -140,10 +148,41 @@ export function SipCalculator({ r }) {
         })}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-[11px] uppercase tracking-wider text-text2 font-semibold">
+          Inflation
+        </span>
+        {INFLATION_PRESETS.map((p) => {
+          const active = +infl === p;
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setInfl(p)}
+              className={`h-7 rounded-full px-3 text-[11.5px] font-semibold tabular-nums transition-colors ${
+                active ? 'text-[#1a1610]' : 'text-text2 hover:text-text'
+              }`}
+              style={
+                active
+                  ? { background: 'linear-gradient(135deg, var(--gold2), var(--gold))' }
+                  : { background: 'var(--card2)', border: '1px solid var(--border)' }
+              }
+            >
+              {p}%
+            </button>
+          );
+        })}
+        <span className="text-[11.5px] text-text2">
+          discounts future value to today's purchasing power
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {cards.map((c) => {
           const gain = c.v - invested;
           const mult = invested > 0 ? c.v / invested : 0;
+          const real = realValue(c.v, infl, r.period);
+          const erosion = c.v > 0 ? (1 - real / c.v) * 100 : 0;
           return (
             <div
               key={c.key}
@@ -176,6 +215,22 @@ export function SipCalculator({ r }) {
                 <span className="font-semibold" style={{ color: c.color }}>
                   {fmtINR(gain)}
                 </span>
+              </div>
+              <div
+                className="mt-2.5 pt-2.5 border-t"
+                style={{ borderColor: 'var(--border2)' }}
+              >
+                <div className="text-[10px] uppercase tracking-wider text-text3">
+                  Worth in today's money
+                </div>
+                <div className="mt-0.5 flex items-baseline gap-1.5">
+                  <span className="font-playfair font-semibold text-[16px] tabular-nums text-text">
+                    {fmtINRCompact(real)}
+                  </span>
+                  <span className="text-[10.5px] text-down tabular-nums">
+                    −{erosion.toFixed(0)}%
+                  </span>
+                </div>
               </div>
             </div>
           );

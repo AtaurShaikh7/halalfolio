@@ -93,7 +93,14 @@ const NON_COMPLIANT_SECTORS = [
 ];
 
 function norm(s) {
-  return String(s ?? '').toLowerCase().replace(/\s+/g, ' ').replace(/[.,]/g, '').trim();
+  // Lowercase, then drop footnote markers (£ # * ^ ~ † @ …) and punctuation that
+  // AMFI/AMC sheets append to instrument names, keeping only letters, digits,
+  // ampersand and apostrophe. "HDFC Bank Ltd.£" → "hdfc bank ltd".
+  return String(s ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9&' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
