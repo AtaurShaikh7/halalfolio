@@ -74,6 +74,29 @@ const COMPLIANT_NAMES = new Set([
   'trent', 'avenue supermarts', 'dmart',
 ]);
 
+// Core-business keywords applied to the *instrument name* itself. AMFI/AMC
+// sheets often ship without a sector column, so we can't rely on enumerating
+// every bank/NBFC. Any holding whose name carries one of these (e.g.
+// "The Federal Bank", "Karur Vysya Bank", "Cholamandalam Financial Holdings")
+// fails the screen — unless it's explicitly allow-listed in COMPLIANT_NAMES.
+const NON_COMPLIANT_NAME_PATTERNS = [
+  /\bbank\b/,
+  /\bbanking\b/,
+  /\bfinance\b/,
+  /\bfinancial\b/,
+  /\bnbfc\b/,
+  /\binsurance\b/,
+  /\bassurance\b/,
+  /\bspirits\b/,
+  /\bbreweries\b/,
+  /\bbrewing\b/,
+  /\bdistilleries\b/,
+  /\bwines?\b/,
+  /\bliquor\b/,
+  /\btobacco\b/,
+  /\bcigarettes?\b/,
+];
+
 // Sector terms that fail by default.
 const NON_COMPLIANT_SECTORS = [
   /^banking$/i,
@@ -111,11 +134,19 @@ function norm(s) {
 export function isHalal(name, sector) {
   const n = norm(name);
   if (!n) return true; // empty — treat as compliant placeholder
-  // Drop common corporate suffixes for fuzzy comparison.
-  const stripped = n.replace(/\b(ltd|limited|inc|plc|corp|corporation|company|co|nv|sa)\b/g, '').trim();
+  // Drop a leading article and common corporate suffixes for fuzzy comparison.
+  const stripped = n
+    .replace(/^the\s+/, '')
+    .replace(/\b(ltd|limited|inc|plc|corp|corporation|company|co|nv|sa)\b/g, '')
+    .trim();
 
   if (NON_COMPLIANT_NAMES.has(n) || NON_COMPLIANT_NAMES.has(stripped)) return false;
   if (COMPLIANT_NAMES.has(n) || COMPLIANT_NAMES.has(stripped)) return true;
+
+  // Name-based core-business screen (works even with no sector column).
+  for (const re of NON_COMPLIANT_NAME_PATTERNS) {
+    if (re.test(n)) return false;
+  }
 
   if (sector) {
     for (const re of NON_COMPLIANT_SECTORS) {
