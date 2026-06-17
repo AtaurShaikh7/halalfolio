@@ -20,7 +20,8 @@ function WeightBar({ value, max, color }) {
 }
 
 function HoldingsSourceBadge({ source, asOf }) {
-  if (source === 'amfi') {
+  if (source === 'amfi' || source === 'amc-factsheet') {
+    const label = source === 'amc-factsheet' ? 'Live · AMC factsheet' : 'Live · AMFI';
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wider"
@@ -35,7 +36,7 @@ function HoldingsSourceBadge({ source, asOf }) {
           className="h-1.5 w-1.5 rounded-full"
           style={{ background: 'var(--green)', boxShadow: '0 0 6px var(--green)' }}
         />
-        Live · AMFI
+        {label}
         {asOf && (
           <span className="font-normal normal-case text-text2 -ml-0.5">
             · as of {fmtDate(asOf)}
