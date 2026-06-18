@@ -8,6 +8,7 @@ import { AnalyzeButton } from '../components/form/AnalyzeButton';
 import { LoadingState } from '../components/form/LoadingState';
 import { Verdict } from '../components/ui/Verdict';
 import { SipCalculator } from '../components/SipCalculator';
+import { HalalBasket } from '../components/HalalBasket';
 import { TabBar } from '../components/tabs/TabBar';
 import { ReturnsTab } from '../components/tabs/ReturnsTab';
 import { RiskTab } from '../components/tabs/RiskTab';
@@ -147,6 +148,8 @@ export function AnalyzerPage() {
           <Verdict verdict={results.verdict} delta={results.delta} />
 
           <SipCalculator r={results} />
+
+          <HalalBasket r={results} />
 
           <TabBar />
 

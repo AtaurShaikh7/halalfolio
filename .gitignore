@@ -16,6 +16,13 @@ dist-ssr
 failures.json
 issue_body.md
 
+# Order module — NEVER commit secrets or trade logs
+.env
+order/.env
+order/cache/
+order/baskets/
+order/execution-logs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
