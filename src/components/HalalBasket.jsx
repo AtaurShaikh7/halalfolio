@@ -81,6 +81,13 @@ export function HalalBasket({ r }) {
   const placeableWeight = placeable.reduce((a, x) => a + x.aw, 0);
   const skippedWeight = skipped.reduce((a, x) => a + x.aw, 0);
 
+  // If we resolved symbols but every single one returned null price, the price
+  // service is down (typically CORS) — show that explicitly instead of pretending
+  // every stock "won't fit".
+  const resolvedCount = halal.filter((h) => h.kind === 'stock').length;
+  const pricedCount = halal.filter((h) => h.kind === 'stock' && prices[h.symbolRoot] != null).length;
+  const priceServiceDown = !loading && resolvedCount > 0 && pricedCount === 0;
+
   function copyBasket() {
     const lines = [
       'Symbol,Action,Quantity,LimitPrice',
@@ -160,6 +167,21 @@ export function HalalBasket({ r }) {
           {copied ? 'Copied' : 'Copy basket (CSV)'}
         </button>
       </div>
+
+      {priceServiceDown && (
+        <div
+          className="mb-3 rounded-lg border px-3 py-2 text-[12.5px]"
+          style={{
+            borderColor: 'var(--orange)',
+            background: 'rgba(243,156,18,0.08)',
+            color: 'var(--orange)',
+          }}
+        >
+          ⚠ Live prices unavailable right now (price source unreachable from this network).
+          Quantities can't be computed. Try refreshing in a minute, or use the local{' '}
+          <code className="font-mono">order/build-basket.mjs</code> which fetches prices server-side.
+        </div>
+      )}
 
       <div className="rounded-xl border bg-card overflow-hidden" style={{ borderColor: 'var(--border)' }}>
         <div className="overflow-x-auto">

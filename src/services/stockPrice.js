@@ -27,19 +27,37 @@ function writeCache(prices) {
   }
 }
 
-async function fetchOne(symbolRoot) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
-    symbolRoot
-  )}.NS?interval=1d&range=1d`;
+// Yahoo direct works from some origins but its CORS headers are inconsistent —
+// in particular GitHub Pages gets blocked. Strategy: try Yahoo directly; on any
+// failure (CORS / network / 4xx) retry through AllOrigins, a free passthrough
+// proxy that re-adds permissive CORS headers.
+const YAHOO_DIRECT = (s) =>
+  `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}.NS?interval=1d&range=1d`;
+const ALLORIGINS = (target) =>
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
+
+function extractPrice(json) {
+  const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
+  return Number.isFinite(price) ? price : null;
+}
+
+async function tryFetch(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const j = await res.json();
-    const price = j?.chart?.result?.[0]?.meta?.regularMarketPrice;
-    return Number.isFinite(price) ? price : null;
+    return extractPrice(j);
   } catch {
     return null;
   }
+}
+
+async function fetchOne(symbolRoot) {
+  const direct = YAHOO_DIRECT(symbolRoot);
+  const viaDirect = await tryFetch(direct);
+  if (viaDirect != null) return viaDirect;
+  // Direct hit failed (almost always CORS on GitHub Pages) — fall back.
+  return await tryFetch(ALLORIGINS(direct));
 }
 
 /** Returns {symbolRoot: priceOrNull}. Cached per session. */
