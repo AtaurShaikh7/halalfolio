@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react';
-import { ShoppingBasket, ExternalLink, Copy, Check } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ShoppingBasket, ExternalLink, Copy, Check, Loader2 } from 'lucide-react';
 import { fmtINR } from '../lib/format';
+import { resolveSymbol } from '../services/symbolResolver';
+import { fetchPrices } from '../services/stockPrice';
 
 const PRESETS = [25000, 50000, 100000, 500000];
 
-// Groww has no public per-stock slug we can derive reliably, but its search
-// route resolves a company name straight to the stock page. Strip corporate
-// suffixes / footnote markers so the query is clean.
 function growwSearchUrl(name) {
   const q = String(name)
     .replace(/\b(ltd|limited|the)\b/gi, '')
@@ -16,47 +15,84 @@ function growwSearchUrl(name) {
   return `https://groww.in/search?q=${encodeURIComponent(q)}`;
 }
 
-// Holdings the basket can't route to an individual stock (e.g. ICICI's
-// aggregated "sub-1% holdings" bucket).
-function isActionable(name) {
-  return !/sub-1%|aggregated|other equity/i.test(name);
+function isAggregateBucket(name) {
+  return /sub-1%|aggregated|other equity/i.test(name);
 }
 
 export function HalalBasket({ r }) {
   const [amount, setAmount] = useState(100000);
+  const [prices, setPrices] = useState({});
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Halal holdings carry an adjusted weight (aw) re-normalised to 100% after
-  // the haram names are dropped — that's the "Sharia version" allocation.
-  const halal = useMemo(
-    () => r.secs.filter((s) => s.h && s.aw > 0).sort((a, b) => b.aw - a.aw),
-    [r.secs]
-  );
+  // Halal holdings re-weighted to 100%, with a resolved NSE symbol where we have one.
+  const halal = useMemo(() => {
+    return r.secs
+      .filter((s) => s.h && s.aw > 0)
+      .map((s) => {
+        if (isAggregateBucket(s.n)) {
+          return { ...s, kind: 'bucket', reason: 'aggregated holdings — not actionable' };
+        }
+        const sym = resolveSymbol(s.n);
+        return sym.unresolved
+          ? { ...s, kind: 'unresolved', reason: sym.reason }
+          : { ...s, kind: 'stock', symbolRoot: sym.symbolRoot };
+      })
+      .sort((a, b) => b.aw - a.aw);
+  }, [r.secs]);
+
+  // Fetch prices whenever the resolvable symbol set changes (i.e. on a new fund).
+  useEffect(() => {
+    let active = true;
+    const roots = halal.filter((h) => h.kind === 'stock').map((h) => h.symbolRoot);
+    if (!roots.length) {
+      setPrices({});
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetchPrices(roots).then((p) => {
+      if (active) {
+        setPrices(p);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [halal]);
 
   const rows = useMemo(() => {
     const amt = Math.max(0, +amount || 0);
-    return halal.map((s) => ({
-      ...s,
-      alloc: +(amt * (s.aw / 100)).toFixed(0),
-      actionable: isActionable(s.n),
-    }));
-  }, [halal, amount]);
+    return halal.map((s) => {
+      const alloc = +(amt * (s.aw / 100)).toFixed(0);
+      if (s.kind !== 'stock') return { ...s, alloc, quantity: 0, price: null, estCost: 0 };
+      const price = prices[s.symbolRoot];
+      const quantity = price ? Math.floor(alloc / price) : 0;
+      const estCost = price ? +(quantity * price).toFixed(0) : 0;
+      const minAmountToInclude = price ? Math.ceil((price / (s.aw / 100)) * 1.0) : null;
+      return { ...s, alloc, price: price ?? null, quantity, estCost, minAmountToInclude };
+    });
+  }, [halal, prices, amount]);
 
-  if (!halal.length) return null;
-
-  const totalWeight = halal.reduce((a, s) => a + s.aw, 0);
-  const totalAlloc = rows.reduce((a, x) => a + x.alloc, 0);
+  const placeable = rows.filter((x) => x.quantity > 0);
+  const skipped = rows.filter((x) => x.quantity === 0);
+  const investedValue = placeable.reduce((a, x) => a + x.estCost, 0);
+  const placeableWeight = placeable.reduce((a, x) => a + x.aw, 0);
+  const skippedWeight = skipped.reduce((a, x) => a + x.aw, 0);
 
   function copyBasket() {
     const lines = [
-      'Stock,Sector,Adjusted Weight %,Allocation (INR)',
-      ...rows.map((x) => `"${x.n}","${x.s}",${x.aw},${x.alloc}`),
+      'Symbol,Action,Quantity,LimitPrice',
+      ...placeable.map((x) => `${x.symbolRoot},BUY,${x.quantity},`),
     ];
     navigator.clipboard?.writeText(lines.join('\n')).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     });
   }
+
+  if (!halal.length) return null;
 
   return (
     <div className="rounded-2xl border bg-card p-5 shadow-card" style={{ borderColor: 'var(--border)' }}>
@@ -65,10 +101,10 @@ export function HalalBasket({ r }) {
           <div className="flex items-center gap-1.5">
             <ShoppingBasket size={16} className="text-gold" />
             <h3 className="font-playfair text-[17px] font-semibold leading-tight">Halal Basket</h3>
+            {loading && <Loader2 size={13} className="text-text2 animate-spin" />}
           </div>
           <div className="text-[12.5px] text-text2 mt-0.5">
-            Own the screened portfolio directly — buy these {rows.length} halal stocks at the
-            adjusted weights. Removed holdings' weight is redistributed here.
+            Own the screened portfolio directly — quantities sized at live NSE prices.
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -115,8 +151,10 @@ export function HalalBasket({ r }) {
         <button
           type="button"
           onClick={copyBasket}
-          className="ml-auto inline-flex items-center gap-1.5 h-7 rounded-full px-3 text-[11.5px] font-semibold text-text2 hover:text-text transition-colors"
+          disabled={!placeable.length}
+          className="ml-auto inline-flex items-center gap-1.5 h-7 rounded-full px-3 text-[11.5px] font-semibold text-text2 hover:text-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ background: 'var(--card2)', border: '1px solid var(--border)' }}
+          title="CSV with Symbol,Action,Quantity columns — Starfolio-compatible core fields."
         >
           {copied ? <Check size={13} className="text-up" /> : <Copy size={13} />}
           {copied ? 'Copied' : 'Copy basket (CSV)'}
@@ -133,14 +171,16 @@ export function HalalBasket({ r }) {
               >
                 <th className="px-4 py-3 font-semibold">#</th>
                 <th className="px-4 py-3 font-semibold">Stock</th>
-                <th className="px-4 py-3 font-semibold">Sector</th>
+                <th className="px-4 py-3 font-semibold">Symbol</th>
                 <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Weight</th>
-                <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Allocation</th>
+                <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Price</th>
+                <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Qty</th>
+                <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">Est. cost</th>
                 <th className="px-4 py-3 font-semibold text-right">Buy</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((x, i) => (
+              {placeable.map((x, i) => (
                 <tr
                   key={`${x.n}-${i}`}
                   className="border-b transition-colors hover:bg-card2"
@@ -148,25 +188,29 @@ export function HalalBasket({ r }) {
                 >
                   <td className="px-4 py-2.5 text-text3 tabular-nums">{i + 1}</td>
                   <td className="px-4 py-2.5 font-semibold text-text">{x.n}</td>
-                  <td className="px-4 py-2.5 text-text2">{x.s}</td>
+                  <td className="px-4 py-2.5 text-text2 tabular-nums">{x.symbolRoot}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-text">{x.aw.toFixed(2)}%</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-text2">
+                    {x.price ? `₹${x.price.toFixed(1)}` : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-text">{x.quantity}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-text">
-                    {fmtINR(x.alloc)}
+                    {fmtINR(x.estCost)}
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    {x.actionable ? (
-                      <a
-                        href={growwSearchUrl(x.n)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-semibold transition-colors"
-                        style={{ color: 'var(--green)', background: 'rgba(46,204,113,0.12)', border: '1px solid rgba(46,204,113,0.30)' }}
-                      >
-                        Groww <ExternalLink size={11} />
-                      </a>
-                    ) : (
-                      <span className="text-[11px] text-text3">spread across small caps</span>
-                    )}
+                    <a
+                      href={growwSearchUrl(x.n)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-semibold transition-colors"
+                      style={{
+                        color: 'var(--green)',
+                        background: 'rgba(46,204,113,0.12)',
+                        border: '1px solid rgba(46,204,113,0.30)',
+                      }}
+                    >
+                      Groww <ExternalLink size={11} />
+                    </a>
                   </td>
                 </tr>
               ))}
@@ -175,15 +219,44 @@ export function HalalBasket({ r }) {
         </div>
       </div>
 
+      {!!skipped.length && (
+        <details className="mt-3 rounded-lg border bg-card2 px-3 py-2 text-[12px]" style={{ borderColor: 'var(--border)' }}>
+          <summary className="cursor-pointer text-text2 select-none">
+            <span className="font-semibold text-text">{skipped.length}</span> stock{skipped.length === 1 ? '' : 's'}{' '}
+            won't fit at <span className="tabular-nums">{fmtINR(amount)}</span>
+            {' '}<span className="text-text3">— combined weight {skippedWeight.toFixed(1)}%</span>
+          </summary>
+          <div className="mt-2 space-y-1">
+            {skipped
+              .sort((a, b) => b.aw - a.aw)
+              .map((x, i) => (
+                <div key={`${x.n}-${i}`} className="flex flex-wrap items-center gap-2 text-text2">
+                  <span className="font-medium text-text">{x.n}</span>
+                  <span className="tabular-nums text-text3">{x.aw.toFixed(2)}%</span>
+                  {x.kind === 'stock' && x.price && x.minAmountToInclude ? (
+                    <span className="text-text3">
+                      · price ₹{x.price.toFixed(1)} · needs ≥{' '}
+                      <span className="text-text">{fmtINR(x.minAmountToInclude)}</span> to fit 1 share
+                    </span>
+                  ) : (
+                    <span className="text-text3">· {x.reason}</span>
+                  )}
+                </div>
+              ))}
+          </div>
+        </details>
+      )}
+
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px] text-text2">
         <div>
-          <span className="font-semibold text-text tabular-nums">{rows.length}</span> halal stocks ·
-          covers <span className="font-semibold text-text tabular-nums">{totalWeight.toFixed(1)}%</span>{' '}
-          adjusted weight · allocating{' '}
-          <span className="font-semibold text-text tabular-nums">{fmtINR(totalAlloc)}</span>
+          <span className="font-semibold text-text tabular-nums">{placeable.length}</span> stocks ·
+          covers <span className="font-semibold text-text tabular-nums">{placeableWeight.toFixed(1)}%</span>{' '}
+          adjusted weight · investing{' '}
+          <span className="font-semibold text-text tabular-nums">{fmtINR(investedValue)}</span> · leftover{' '}
+          <span className="tabular-nums text-text">{fmtINR(amount - investedValue)}</span>
         </div>
         <div className="text-text3">
-          ₹ allocations only — share quantity depends on live price at order time.
+          Prices via Yahoo · cached 1h · executed price may differ (MARKET orders).
         </div>
       </div>
     </div>
