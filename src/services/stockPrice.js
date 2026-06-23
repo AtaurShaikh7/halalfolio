@@ -27,14 +27,19 @@ function writeCache(prices) {
   }
 }
 
-// Yahoo direct works from some origins but its CORS headers are inconsistent —
-// in particular GitHub Pages gets blocked. Strategy: try Yahoo directly; on any
-// failure (CORS / network / 4xx) retry through AllOrigins, a free passthrough
-// proxy that re-adds permissive CORS headers.
-const YAHOO_DIRECT = (s) =>
+// GitHub Pages can't reach Yahoo directly (CORS), and any single free CORS
+// proxy rate-limits aggressively (the symptom: 2–3 prices succeed, the rest
+// fail). So per stock we walk a list of endpoints in order and return the
+// first one that returns a valid price. The list mixes Yahoo direct + two
+// passthrough proxies so we degrade gracefully when any one is throttled.
+const YAHOO = (s) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}.NS?interval=1d&range=1d`;
-const ALLORIGINS = (target) =>
-  `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`;
+
+const ENDPOINTS = [
+  (s) => YAHOO(s),                                                  // direct
+  (s) => `https://corsproxy.io/?${encodeURIComponent(YAHOO(s))}`,   // proxy 1
+  (s) => `https://api.allorigins.win/raw?url=${encodeURIComponent(YAHOO(s))}`, // proxy 2
+];
 
 function extractPrice(json) {
   const price = json?.chart?.result?.[0]?.meta?.regularMarketPrice;
@@ -53,11 +58,11 @@ async function tryFetch(url) {
 }
 
 async function fetchOne(symbolRoot) {
-  const direct = YAHOO_DIRECT(symbolRoot);
-  const viaDirect = await tryFetch(direct);
-  if (viaDirect != null) return viaDirect;
-  // Direct hit failed (almost always CORS on GitHub Pages) — fall back.
-  return await tryFetch(ALLORIGINS(direct));
+  for (const makeUrl of ENDPOINTS) {
+    const px = await tryFetch(makeUrl(symbolRoot));
+    if (px != null) return px;
+  }
+  return null;
 }
 
 /** Returns {symbolRoot: priceOrNull}. Cached per session. */
@@ -72,16 +77,22 @@ export async function fetchPrices(symbolRoots) {
   }
   if (!need.length) return out;
 
-  // Light concurrency — 4 in flight at a time.
-  const CONCURRENCY = 4;
+  // Concurrency 2 (was 4) — free CORS proxies throttle aggressively above this.
+  // Adds a small jitter between calls to spread load across the proxies' windows.
+  const CONCURRENCY = 2;
   const queue = [...need];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   async function worker() {
     while (queue.length) {
       const root = queue.shift();
       out[root] = await fetchOne(root);
+      await sleep(120 + Math.random() * 80);
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  writeCache({ ...cache, ...out });
+  // Only cache *real* prices — caching nulls makes a transient proxy hiccup
+  // stick around for an hour. A re-render will retry the null ones.
+  const cacheable = Object.fromEntries(Object.entries(out).filter(([, v]) => v != null));
+  writeCache({ ...cache, ...cacheable });
   return out;
 }
