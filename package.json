@@ -13,6 +13,8 @@
     "holdings:download": "node scripts/download_holdings.mjs"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/roboto": "^5.2.10",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.18.0",
     "react": "^19.2.6",

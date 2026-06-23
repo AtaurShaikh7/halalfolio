@@ -7,13 +7,14 @@ const TABS = [
   { id: 't-hlth', label: 'Fund Health', icon: '🏦' },
   { id: 't-shar', label: 'Sharia', icon: '☪' },
   { id: 't-hold', label: 'Holdings', icon: '📋' },
+  { id: 't-bask', label: 'Halal Basket', icon: '🛒' },
 ];
 
 export function TabBar() {
   const { activeTab, setActiveTab } = useAnalysisStore();
   return (
     <div
-      className="sticky top-14 z-20 -mx-4 mb-4 overflow-x-auto border-b sm:mx-0 sm:rounded-t-xl"
+      className="sticky top-14 z-20 -mx-4 mb-4 overflow-x-auto no-scrollbar border-b sm:mx-0 sm:rounded-t-xl"
       style={{
         borderColor: 'var(--border)',
         background: 'color-mix(in srgb, var(--bg) 92%, transparent)',

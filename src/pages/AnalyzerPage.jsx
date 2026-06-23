@@ -30,6 +30,7 @@ function ActiveTab() {
     case 't-hlth': return <HealthTab r={results} fund={fund} />;
     case 't-shar': return <ShariaTab r={results} />;
     case 't-hold': return <HoldingsTab r={results} />;
+    case 't-bask': return <HalalBasket r={results} />;
     default: return null;
   }
 }
@@ -148,8 +149,6 @@ export function AnalyzerPage() {
           <Verdict verdict={results.verdict} delta={results.delta} />
 
           <SipCalculator r={results} />
-
-          <HalalBasket r={results} />
 
           <TabBar />
 

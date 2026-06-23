@@ -4,8 +4,11 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
-        playfair: ['"Playfair Display"', 'Georgia', 'serif'],
+        // Inter for letters; Roboto for digits — wired via @font-face
+        // unicode-range overrides in src/index.css, so any element using these
+        // families automatically renders digits in Roboto.
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        playfair: ['Inter', 'system-ui', 'sans-serif'],
         amiri: ['Amiri', 'serif'],
       },
       colors: {
