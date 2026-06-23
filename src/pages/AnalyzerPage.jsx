@@ -20,11 +20,17 @@ import { SectorBars } from '../components/charts/SectorBars';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 import { FUNDS } from '../data/funds';
 
+function isDataless(sectors) {
+  return !sectors?.length || (sectors.length === 1 && sectors[0].name === 'Other');
+}
+
 function SectorComparison({ r }) {
-  if (!r.origSectors?.length && !r.sectors?.length) return null;
+  const noOrig = isDataless(r.origSectors);
+  const noHalal = isDataless(r.sectors);
+  if (noOrig && noHalal) return null;
   const globalMax = Math.max(
-    ...(r.origSectors || []).map((s) => s.value),
-    ...(r.sectors || []).map((s) => s.value),
+    ...(noOrig ? [] : r.origSectors.map((s) => s.value)),
+    ...(noHalal ? [] : r.sectors.map((s) => s.value)),
     1
   );
   return (
@@ -33,27 +39,28 @@ function SectorComparison({ r }) {
         <span className="text-[11px] uppercase tracking-[0.2em] text-gold">Sector Allocation</span>
         <span className="text-[11px] text-text3">Original vs Halal</span>
       </div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div>
-          <div className="mb-2.5 flex items-center gap-2">
-            <span
-              className="inline-block h-2 w-2 rounded-sm"
-              style={{ background: 'var(--blue)' }}
-            />
-            <span className="text-[12px] font-semibold uppercase tracking-wider text-text2">Original Fund</span>
+      <div className={`grid grid-cols-1 gap-6 ${!noOrig && !noHalal ? 'md:grid-cols-2' : ''}`}>
+        {!noOrig && (
+          <div>
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--blue)' }} />
+              <span className="text-[12px] font-semibold uppercase tracking-wider text-text2">Original Fund</span>
+            </div>
+            <SectorBars sectors={r.origSectors} color="blue" maxVal={globalMax} />
           </div>
-          <SectorBars sectors={r.origSectors || []} color="blue" maxVal={globalMax} />
-        </div>
-        <div>
-          <div className="mb-2.5 flex items-center gap-2">
-            <span
-              className="inline-block h-2 w-2 rounded-sm"
-              style={{ background: 'var(--gold)' }}
-            />
-            <span className="text-[12px] font-semibold uppercase tracking-wider text-text2">Halal Portfolio</span>
+        )}
+        {!noHalal && (
+          <div>
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--gold)' }} />
+              <span className="text-[12px] font-semibold uppercase tracking-wider text-text2">Halal Portfolio</span>
+            </div>
+            <SectorBars sectors={r.sectors} color="gold" maxVal={globalMax} />
           </div>
-          <SectorBars sectors={r.sectors || []} color="gold" maxVal={globalMax} />
-        </div>
+        )}
+        {noOrig && !noHalal && (
+          <p className="text-[12px] text-text3 self-center">Original sector data not available for this fund.</p>
+        )}
       </div>
     </div>
   );

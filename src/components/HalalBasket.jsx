@@ -26,6 +26,103 @@ const SECTOR_COLORS = [
   '#00bcd4', '#ff9800', '#607d8b', '#8bc34a',
 ];
 
+const TOOLTIP_STYLE = {
+  background: 'var(--card)',
+  border: '1px solid var(--border)',
+  borderRadius: 8,
+  fontSize: 12,
+  color: 'var(--text)',
+};
+
+// Returns true when a sectors array is meaningless (all "Other" or empty)
+function hasNoSectorData(sectors) {
+  return !sectors.length || (sectors.length === 1 && sectors[0].name === 'Other');
+}
+
+function PiePanel({ title, accentColor, data, colorMap, valueLabel }) {
+  if (hasNoSectorData(data)) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-6">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-sm flex-shrink-0" style={{ background: accentColor }} />
+          <span className="text-[11.5px] font-semibold uppercase tracking-wider text-text2">{title}</span>
+        </div>
+        <p className="text-[12px] text-text3">Sector data not available for this fund.</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="inline-block h-2 w-2 rounded-sm flex-shrink-0" style={{ background: accentColor }} />
+        <span className="text-[11.5px] font-semibold uppercase tracking-wider text-text2">{title}</span>
+      </div>
+      <ResponsiveContainer width="100%" height={180}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={50}
+            outerRadius={82}
+            paddingAngle={2}
+            dataKey="value"
+          >
+            {data.map((s) => (
+              <Cell key={s.name} fill={colorMap[s.name]} opacity={0.9} />
+            ))}
+          </Pie>
+          <ReTooltip
+            formatter={(val, _n, entry) => [valueLabel(val, entry.payload), entry.payload.name]}
+            contentStyle={TOOLTIP_STYLE}
+            itemStyle={{ color: 'var(--text)' }}
+            labelStyle={{ display: 'none' }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="mt-3 space-y-1.5">
+        {data.map((s) => (
+          <div key={s.name} className="flex items-center gap-2 text-[12px]">
+            <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ background: colorMap[s.name] }} />
+            <span className="flex-1 text-text truncate">{s.name}</span>
+            <span className="w-10 text-right tabular-nums font-semibold" style={{ color: colorMap[s.name] }}>
+              {s.pct ?? s.value.toFixed(1)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectorPieComparison({ sectorData, origSectorData, sectorColorMap }) {
+  const bothDataless = hasNoSectorData(sectorData) && hasNoSectorData(origSectorData);
+  if (bothDataless) return null;
+  return (
+    <div className="mt-4 rounded-xl border bg-card2 p-4" style={{ borderColor: 'var(--border)' }}>
+      <div className="mb-4 text-[12px] font-semibold uppercase tracking-wider text-text2">
+        Sector Allocation Comparison
+      </div>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <PiePanel
+          title="Halal Basket · live"
+          accentColor="var(--green)"
+          data={sectorData}
+          colorMap={sectorColorMap}
+          valueLabel={(val, payload) => `${fmtINR(val)} (${payload.pct}%)`}
+        />
+        <PiePanel
+          title="Original Fund"
+          accentColor="var(--blue)"
+          data={origSectorData}
+          colorMap={sectorColorMap}
+          valueLabel={(val, payload) => `${payload.value.toFixed(1)}%`}
+        />
+      </div>
+    </div>
+  );
+}
+
 const PRESETS = [25000, 50000, 100000, 500000];
 
 function growwSearchUrl(name) {
@@ -373,88 +470,11 @@ export function HalalBasket({ r }) {
       </div>
 
       {(sectorData.length > 0 || origSectorData.length > 0) && (
-        <div className="mt-4 rounded-xl border bg-card2 p-4" style={{ borderColor: 'var(--border)' }}>
-          <div className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-text2">
-            Sector Allocation Comparison
-          </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-            {/* Halal Basket (live, quantity-based) */}
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--green)' }} />
-                <span className="text-[11.5px] font-semibold uppercase tracking-wider text-text2">Halal Basket · live</span>
-              </div>
-              {sectorData.length > 0 ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <ResponsiveContainer width="100%" height={180} minWidth={140}>
-                    <PieChart>
-                      <Pie data={sectorData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2} dataKey="value">
-                        {sectorData.map((s) => (
-                          <Cell key={s.name} fill={sectorColorMap[s.name]} opacity={0.9} />
-                        ))}
-                      </Pie>
-                      <ReTooltip
-                        formatter={(val, _n, entry) => [`${fmtINR(val)} (${entry.payload.pct}%)`, entry.payload.name]}
-                        contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text)' }}
-                        itemStyle={{ color: 'var(--text)' }}
-                        labelStyle={{ display: 'none' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex flex-col gap-1 flex-1 min-w-0">
-                    {sectorData.map((s) => (
-                      <div key={s.name} className="flex items-center gap-2 text-[12px]">
-                        <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ background: sectorColorMap[s.name] }} />
-                        <span className="flex-1 text-text truncate">{s.name}</span>
-                        <span className="tabular-nums font-semibold" style={{ color: sectorColorMap[s.name] }}>{s.pct}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[12.5px] text-text3">Add stocks to see basket sector breakdown.</p>
-              )}
-            </div>
-
-            {/* Original Fund */}
-            <div>
-              <div className="mb-2 flex items-center gap-2">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--blue)' }} />
-                <span className="text-[11.5px] font-semibold uppercase tracking-wider text-text2">Original Fund</span>
-              </div>
-              {origSectorData.length > 0 ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <ResponsiveContainer width="100%" height={180} minWidth={140}>
-                    <PieChart>
-                      <Pie data={origSectorData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2} dataKey="value">
-                        {origSectorData.map((s) => (
-                          <Cell key={s.name} fill={sectorColorMap[s.name]} opacity={0.9} />
-                        ))}
-                      </Pie>
-                      <ReTooltip
-                        formatter={(val, _n, entry) => [`${val.toFixed(1)}%`, entry.payload.name]}
-                        contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text)' }}
-                        itemStyle={{ color: 'var(--text)' }}
-                        labelStyle={{ display: 'none' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex flex-col gap-1 flex-1 min-w-0">
-                    {origSectorData.map((s) => (
-                      <div key={s.name} className="flex items-center gap-2 text-[12px]">
-                        <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ background: sectorColorMap[s.name] }} />
-                        <span className="flex-1 text-text truncate">{s.name}</span>
-                        <span className="tabular-nums font-semibold" style={{ color: sectorColorMap[s.name] }}>{s.value.toFixed(1)}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-          </div>
-        </div>
+        <SectorPieComparison
+          sectorData={sectorData}
+          origSectorData={origSectorData}
+          sectorColorMap={sectorColorMap}
+        />
       )}
 
       {!!skipped.length && (
