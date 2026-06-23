@@ -1,7 +1,6 @@
 import { StatCard } from '../ui/StatCard';
 import { ChartFrame } from '../charts/ChartFrame';
 import { NavGrowthChart } from '../charts/NavGrowthChart';
-import { SectorBars } from '../charts/SectorBars';
 
 export function ReturnsTab({ r }) {
   const live = r.source === 'live';
@@ -13,18 +12,9 @@ export function ReturnsTab({ r }) {
         <StatCard live={live} label="Return Δ" value={`${r.delta > 0 ? '+' : ''}${r.delta}%`} sub="cost of compliance" color={r.delta > -2 ? 'green' : r.delta > -4 ? 'orange' : 'red'} valueColor={r.delta >= 0 ? 'up' : 'down'} tooltipKey="delta" />
         <StatCard live={live} label="Absolute Return" value={`${r.absR}%`} sub={`over ${r.period}Y`} color="gold" valueColor="gold" tooltipKey="abs" />
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <ChartFrame title="NAV Growth (₹100 invested)" tooltipKey="navg" height={240}>
-            <NavGrowthChart data={r.nav} />
-          </ChartFrame>
-        </div>
-        <ChartFrame title="Sector Allocation" tooltipKey="secalloc" height={240}>
-          <div className="h-full overflow-y-auto pr-1">
-            <SectorBars sectors={r.sectors} />
-          </div>
-        </ChartFrame>
-      </div>
+      <ChartFrame title="NAV Growth (₹100 invested)" tooltipKey="navg" height={240}>
+        <NavGrowthChart data={r.nav} />
+      </ChartFrame>
     </div>
   );
 }
