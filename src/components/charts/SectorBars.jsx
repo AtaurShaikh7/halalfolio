@@ -1,5 +1,12 @@
-export function SectorBars({ sectors }) {
-  const max = Math.max(...sectors.map((s) => s.value), 1);
+const COLOR_GRADIENT = {
+  gold: 'linear-gradient(90deg, var(--gold), var(--gold2))',
+  blue: 'linear-gradient(90deg, var(--blue), #7ba8f5)',
+  green: 'linear-gradient(90deg, var(--green), #55e695)',
+};
+
+export function SectorBars({ sectors, color = 'gold', maxVal }) {
+  const max = maxVal ?? Math.max(...sectors.map((s) => s.value), 1);
+  const gradient = COLOR_GRADIENT[color] || COLOR_GRADIENT.gold;
   return (
     <div className="space-y-2">
       {sectors.map((s) => (
@@ -10,7 +17,7 @@ export function SectorBars({ sectors }) {
               className="h-full rounded-full"
               style={{
                 width: `${(s.value / max) * 100}%`,
-                background: 'linear-gradient(90deg, var(--gold), var(--gold2))',
+                background: gradient,
               }}
             />
           </div>

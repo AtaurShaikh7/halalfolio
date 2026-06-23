@@ -36,7 +36,18 @@ function shariaScreen(rawSecs) {
   const sectors = Object.entries(sectorMap)
     .map(([name, value]) => ({ name, value: +value.toFixed(2) }))
     .sort((a, b) => b.value - a.value);
-  return { halalW, haramW, secs, removed, sectors };
+
+  // Original (pre-screening) sector breakdown, normalized to 100%
+  const origSectorMap = {};
+  for (const s of rawSecs) {
+    origSectorMap[s.s || 'Other'] = (origSectorMap[s.s || 'Other'] || 0) + s.w;
+  }
+  const origTotal = rawSecs.reduce((a, s) => a + s.w, 0) || 1;
+  const origSectors = Object.entries(origSectorMap)
+    .map(([name, w]) => ({ name, value: +((w / origTotal) * 100).toFixed(2) }))
+    .sort((a, b) => b.value - a.value);
+
+  return { halalW, haramW, secs, removed, sectors, origSectors };
 }
 
 // Resolve the holdings list to use for a given fund: prefer the ingested AMFI
@@ -56,7 +67,7 @@ function resolveSecs(fund) {
 export function computeSimulated(fund, period, fundKey) {
   const rand = seeded(`${fundKey}-${period}`);
   const { rawSecs, holdingsSource, holdingsAsOf } = resolveSecs(fund);
-  const { halalW, haramW, secs, removed, sectors } = shariaScreen(rawSecs);
+  const { halalW, haramW, secs, removed, sectors, origSectors } = shariaScreen(rawSecs);
 
   const origC = fund.cagr[period] ?? fund.cagr[5] ?? fund.cagr[3];
   const sharC = +(origC + (fund.impact[period] ?? fund.impact[5] ?? fund.impact[3])).toFixed(1);
@@ -126,7 +137,7 @@ export function computeSimulated(fund, period, fundKey) {
     holdingsSource, holdingsAsOf,
     origC, sharC, delta, absR,
     vol, sVol, sharpe, sortino, beta, alpha, maxdd, recov, ir, te, win,
-    compScore, secs, removed, haramW, halalW, sectors, verdict,
+    compScore, secs, removed, haramW, halalW, sectors, origSectors, verdict,
     nav, dd, heat, rolling,
     period,
     aum: fund.aum,
@@ -150,7 +161,7 @@ export async function computeLive(fund, period, fundKey) {
   }
 
   const { rawSecs, holdingsSource, holdingsAsOf } = resolveSecs(fund);
-  const { halalW, haramW, secs, removed, sectors } = shariaScreen(rawSecs);
+  const { halalW, haramW, secs, removed, sectors, origSectors } = shariaScreen(rawSecs);
 
   // Live "original" CAGR comes from NAV. Sharia version applies the fund's per-period impact.
   const origC = +pp.cagr.toFixed(2);
@@ -195,7 +206,7 @@ export async function computeLive(fund, period, fundKey) {
     seriesEnd: a.seriesEnd,
     origC, sharC, delta, absR,
     vol, sVol, sharpe, sortino, beta, alpha, maxdd, recov, ir, te, win,
-    compScore, secs, removed, haramW, halalW, sectors, verdict,
+    compScore, secs, removed, haramW, halalW, sectors, origSectors, verdict,
     nav,
     dd: pp.drawdown,
     heat: a.last12,

@@ -16,8 +16,48 @@ import { ConsistencyTab } from '../components/tabs/ConsistencyTab';
 import { HealthTab } from '../components/tabs/HealthTab';
 import { ShariaTab } from '../components/tabs/ShariaTab';
 import { HoldingsTab } from '../components/tabs/HoldingsTab';
+import { SectorBars } from '../components/charts/SectorBars';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 import { FUNDS } from '../data/funds';
+
+function SectorComparison({ r }) {
+  if (!r.origSectors?.length && !r.sectors?.length) return null;
+  const globalMax = Math.max(
+    ...(r.origSectors || []).map((s) => s.value),
+    ...(r.sectors || []).map((s) => s.value),
+    1
+  );
+  return (
+    <div className="rounded-2xl border bg-card p-5 shadow-card" style={{ borderColor: 'var(--border)' }}>
+      <div className="mb-4 flex items-center gap-2">
+        <span className="text-[11px] uppercase tracking-[0.2em] text-gold">Sector Allocation</span>
+        <span className="text-[11px] text-text3">Original vs Halal</span>
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div>
+          <div className="mb-2.5 flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ background: 'var(--blue)' }}
+            />
+            <span className="text-[12px] font-semibold uppercase tracking-wider text-text2">Original Fund</span>
+          </div>
+          <SectorBars sectors={r.origSectors || []} color="blue" maxVal={globalMax} />
+        </div>
+        <div>
+          <div className="mb-2.5 flex items-center gap-2">
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ background: 'var(--gold)' }}
+            />
+            <span className="text-[12px] font-semibold uppercase tracking-wider text-text2">Halal Portfolio</span>
+          </div>
+          <SectorBars sectors={r.sectors || []} color="gold" maxVal={globalMax} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ActiveTab() {
   const { activeTab, results, fundKey } = useAnalysisStore();
@@ -149,6 +189,8 @@ export function AnalyzerPage() {
           <Verdict verdict={results.verdict} delta={results.delta} />
 
           <SipCalculator r={results} />
+
+          <SectorComparison r={results} />
 
           <TabBar />
 

@@ -143,6 +143,15 @@ export function HalalBasket({ r }) {
       .sort((a, b) => b.value - a.value);
   }, [placeable, investedValue]);
 
+  // Original full-fund sector allocation (from r.origSectors, already normalized to 100%)
+  const origSectorData = useMemo(() => (r.origSectors || []), [r.origSectors]);
+
+  // Shared color map so the same sector gets the same color in both charts
+  const sectorColorMap = useMemo(() => {
+    const allNames = [...new Set([...sectorData.map((s) => s.name), ...origSectorData.map((s) => s.name)])];
+    return Object.fromEntries(allNames.map((name, i) => [name, SECTOR_COLORS[i % SECTOR_COLORS.length]]));
+  }, [sectorData, origSectorData]);
+
   const resolvedCount = halal.filter((h) => h.kind === 'stock').length;
   const pricedCount = halal.filter((h) => h.kind === 'stock' && prices[h.symbolRoot] != null).length;
   const priceServiceDown = !loading && resolvedCount > 0 && pricedCount === 0;
@@ -363,67 +372,87 @@ export function HalalBasket({ r }) {
         </div>
       </div>
 
-      {sectorData.length > 0 && (
+      {(sectorData.length > 0 || origSectorData.length > 0) && (
         <div className="mt-4 rounded-xl border bg-card2 p-4" style={{ borderColor: 'var(--border)' }}>
           <div className="mb-3 text-[12px] font-semibold uppercase tracking-wider text-text2">
-            Sector Allocation · live
+            Sector Allocation Comparison
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={sectorData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={95}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {sectorData.map((_, idx) => (
-                    <Cell
-                      key={idx}
-                      fill={SECTOR_COLORS[idx % SECTOR_COLORS.length]}
-                      opacity={0.9}
-                    />
-                  ))}
-                </Pie>
-                <ReTooltip
-                  formatter={(val, _name, entry) => [
-                    `${fmtINR(val)} (${entry.payload.pct}%)`,
-                    entry.payload.name,
-                  ]}
-                  contentStyle={{
-                    background: 'var(--card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                    color: 'var(--text)',
-                  }}
-                  itemStyle={{ color: 'var(--text)' }}
-                  labelStyle={{ display: 'none' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
-            <div className="flex flex-col justify-center gap-1.5">
-              {sectorData.map((s, idx) => (
-                <div key={s.name} className="flex items-center gap-2 text-[12.5px]">
-                  <span
-                    className="h-2.5 w-2.5 flex-shrink-0 rounded-sm"
-                    style={{ background: SECTOR_COLORS[idx % SECTOR_COLORS.length] }}
-                  />
-                  <span className="flex-1 text-text truncate">{s.name}</span>
-                  <span className="tabular-nums text-text2">{fmtINR(s.value)}</span>
-                  <span
-                    className="w-10 text-right tabular-nums font-semibold"
-                    style={{ color: SECTOR_COLORS[idx % SECTOR_COLORS.length] }}
-                  >
-                    {s.pct}%
-                  </span>
+            {/* Halal Basket (live, quantity-based) */}
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--green)' }} />
+                <span className="text-[11.5px] font-semibold uppercase tracking-wider text-text2">Halal Basket · live</span>
+              </div>
+              {sectorData.length > 0 ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <ResponsiveContainer width="100%" height={180} minWidth={140}>
+                    <PieChart>
+                      <Pie data={sectorData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2} dataKey="value">
+                        {sectorData.map((s) => (
+                          <Cell key={s.name} fill={sectorColorMap[s.name]} opacity={0.9} />
+                        ))}
+                      </Pie>
+                      <ReTooltip
+                        formatter={(val, _n, entry) => [`${fmtINR(val)} (${entry.payload.pct}%)`, entry.payload.name]}
+                        contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text)' }}
+                        itemStyle={{ color: 'var(--text)' }}
+                        labelStyle={{ display: 'none' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    {sectorData.map((s) => (
+                      <div key={s.name} className="flex items-center gap-2 text-[12px]">
+                        <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ background: sectorColorMap[s.name] }} />
+                        <span className="flex-1 text-text truncate">{s.name}</span>
+                        <span className="tabular-nums font-semibold" style={{ color: sectorColorMap[s.name] }}>{s.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              ) : (
+                <p className="text-[12.5px] text-text3">Add stocks to see basket sector breakdown.</p>
+              )}
             </div>
+
+            {/* Original Fund */}
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: 'var(--blue)' }} />
+                <span className="text-[11.5px] font-semibold uppercase tracking-wider text-text2">Original Fund</span>
+              </div>
+              {origSectorData.length > 0 ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <ResponsiveContainer width="100%" height={180} minWidth={140}>
+                    <PieChart>
+                      <Pie data={origSectorData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2} dataKey="value">
+                        {origSectorData.map((s) => (
+                          <Cell key={s.name} fill={sectorColorMap[s.name]} opacity={0.9} />
+                        ))}
+                      </Pie>
+                      <ReTooltip
+                        formatter={(val, _n, entry) => [`${val.toFixed(1)}%`, entry.payload.name]}
+                        contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text)' }}
+                        itemStyle={{ color: 'var(--text)' }}
+                        labelStyle={{ display: 'none' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    {origSectorData.map((s) => (
+                      <div key={s.name} className="flex items-center gap-2 text-[12px]">
+                        <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ background: sectorColorMap[s.name] }} />
+                        <span className="flex-1 text-text truncate">{s.name}</span>
+                        <span className="tabular-nums font-semibold" style={{ color: sectorColorMap[s.name] }}>{s.value.toFixed(1)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
           </div>
         </div>
       )}
